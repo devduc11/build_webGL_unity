@@ -17,7 +17,8 @@ namespace Unity.Play.Publisher.Editor
     {
         const string WebglSharingFile = "webgl_sharing";
         const string ZipName = "connectwebgl.zip";
-        const string UploadEndpoint = "/api/webgl/upload";
+        // const string UploadEndpoint = "/api/webgl/upload";
+        const string UploadEndpoint = "/upload_from_form/";
         const string QueryProgressEndpoint = "/api/webgl/progress";
         const string UndefinedGUID = "UNDEFINED_GUID";
         const int ZipFileLimitBytes = 200 * 1024 * 1024;
