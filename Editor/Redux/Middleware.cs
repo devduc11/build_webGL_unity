@@ -95,7 +95,7 @@ namespace Unity.Play.Publisher.Editor
 
             // Thay đổi host và token tại đây
             string host = "https://games.taapgame.com";
-            string access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiZGV2IiwiYXV0aG9yIjoiZGV2IiwiaWF0IjoxNjU1NjkxNjAwLCJleHAiOjI1MTk2OTE2MDB9.7rOZjFaqs2U3RZESisQIrnrh9IJ3QWcTtAINqEdhTqQ";
+            string access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYWRtaW4iLCJhdXRob3IiOiJhbiIsImlhdCI6MTY1ODI0OTAyNiwiZXhwIjoyNTIyMjQ5MDI2fQ._Y6fgh01dJZFuJKVX9-2EUutz2w59Jx8WLYVAzRFnik";
 
             // Thay đổi baseUrl dựa trên host
             string baseUrl = $"{host}{UploadEndpoint}";
