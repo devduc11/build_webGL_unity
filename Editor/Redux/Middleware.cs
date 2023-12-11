@@ -164,4 +164,85 @@ namespace Unity.Play.Publisher.Editor
             return projectId;
         }
 
-        static IEnumerator Update
+        static IEnumerator UpdateProgress(UnityWebRequest request)
+        {
+            EditorWaitForSeconds waitForSeconds = new EditorWaitForSeconds(0.5f);
+            while (true)
+            {
+                if (request.isDone) { break; }
+
+                int progress = (int)(Mathf.Clamp(request.uploadProgress, 0, 1) * 100);
+                Debug.Log($"Upload Progress: {progress}%");
+                yield return waitForSeconds;
+            }
+            yield return null;
+        }
+
+        static void CheckLoginStatus()
+        {
+            var token = UnityConnectSession.instance.GetAccessToken();
+            if (token.Length != 0)
+            {
+                Debug.Log("Connected!");
+                return;
+            }
+
+            if (waitUntilUserLogsInRoutine != null) { return; }
+
+            waitUntilUserLogsInRoutine = EditorCoroutineUtility.StartCoroutineOwnerless(WaitUntilUserLogsIn(2f));
+        }
+
+        static IEnumerator WaitUntilUserLogsIn(float refreshDelay)
+        {
+            EditorWaitForSeconds waitAmount = new EditorWaitForSeconds(refreshDelay);
+            while (EditorWindow.HasOpenInstances<PublisherWindow>())
+            {
+                yield return waitAmount;
+                if (UnityConnectSession.instance.GetAccessToken().Length != 0)
+                {
+                    Debug.Log("Connected!");
+                    waitUntilUserLogsInRoutine = null;
+                    yield break;
+                }
+            }
+            waitUntilUserLogsInRoutine = null;
+        }
+
+        static IEnumerator RefreshProcessingProgress(float refreshDelay)
+        {
+            EditorWaitForSeconds waitAmount = new EditorWaitForSeconds(refreshDelay);
+            yield return waitAmount;
+            QueryProgress(null);
+        }
+
+        static string GetAPIBaseUrl()
+        {
+            // string env = UnityConnectSession.instance.GetEnvironment();
+            // if (env == "staging")
+            // {
+            //     return "https://connect-staging.unity.com";
+            // }
+            // else if (env == "dev")
+            // {
+            //     return "https://connect-dev.unity.com";
+            // }
+
+            return "https://games.taapgame.com";
+        }
+    }
+
+    [Serializable]
+    public class UploadResponse
+    {
+        public string key;
+    }
+
+    [Serializable]
+    public class GetProgressResponse
+    {
+        public string projectId;
+        public string url;
+        public int progress;
+        public string error;
+    }
+}
