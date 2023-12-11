@@ -88,11 +88,8 @@ namespace Unity.Play.Publisher.Editor
             return true;
         }
 
-        static void Upload(Store<AppState> store, string buildGUID)
+        static void Upload(string buildGUID, string zipPath, string title)
         {
-            string path = store.state.zipPath;
-            string title = string.IsNullOrEmpty(store.state.title) ? PublisherUtils.DefaultGameName : store.state.title;
-
             // Thay đổi host và token tại đây
             string host = "https://games.taapgame.com";
             string access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYWRtaW4iLCJhdXRob3IiOiJhbiIsImlhdCI6MTY1ODI0OTAyNiwiZXhwIjoyNTIyMjQ5MDI2fQ._Y6fgh01dJZFuJKVX9-2EUutz2w59Jx8WLYVAzRFnik";
@@ -116,7 +113,7 @@ namespace Unity.Play.Publisher.Editor
             }
 
             formSections.Add(new MultipartFormFileSection("file",
-                File.ReadAllBytes(path), Path.GetFileName(path), "application/zip"));
+                File.ReadAllBytes(zipPath), Path.GetFileName(zipPath), "application/zip"));
 
             uploadRequest = UnityWebRequest.Post(baseUrl, formSections);
 
@@ -126,20 +123,21 @@ namespace Unity.Play.Publisher.Editor
 
             var op = uploadRequest.SendWebRequest();
 
-            EditorCoroutineUtility.StartCoroutineOwnerless(UpdateProgress(store, uploadRequest));
+            EditorCoroutineUtility.StartCoroutineOwnerless(UpdateProgress(uploadRequest));
 
             op.completed += operation =>
             {
 #if UNITY_2020
-                if ((uploadRequest.result == UnityWebRequest.Result.ConnectionError)
-                    || (uploadRequest.result == UnityWebRequest.Result.ProtocolError))
+        if ((uploadRequest.result == UnityWebRequest.Result.ConnectionError)
+            || (uploadRequest.result == UnityWebRequest.Result.ProtocolError))
 #else
                 if (uploadRequest.isNetworkError || uploadRequest.isHttpError)
 #endif
                 {
                     if (uploadRequest.error != "Request aborted")
                     {
-                        store.Dispatch(new OnErrorAction { errorMsg = uploadRequest.error });
+                        // Bỏ qua việc dispatch action vào store nếu cần
+                        // store.Dispatch(new OnErrorAction { errorMsg = uploadRequest.error });
                     }
                 }
                 else
@@ -147,11 +145,13 @@ namespace Unity.Play.Publisher.Editor
                     var response = JsonUtility.FromJson<UploadResponse>(op.webRequest.downloadHandler.text);
                     if (!string.IsNullOrEmpty(response.key))
                     {
-                        store.Dispatch(new QueryProgressAction { key = response.key });
+                        // Bỏ qua việc dispatch action vào store nếu cần
+                        // store.Dispatch(new QueryProgressAction { key = response.key });
                     }
                 }
             };
         }
+
 
         static void StopUploadAction()
         {
