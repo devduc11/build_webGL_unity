@@ -90,8 +90,8 @@ namespace Unity.Play.Publisher.Editor
 
         static void Upload(Store<AppState> store, string buildGUID)
         {
-            string path = zipPath; // Assume zipPath is a class-level variable
-            string title = string.IsNullOrEmpty(title) ? PublisherUtils.DefaultGameName : title;
+            string path = store.state.zipPath; // Assume zipPath is a class-level variable
+            string title = string.IsNullOrEmpty(store.state.title) ? PublisherUtils.DefaultGameName : store.state.title;
 
             // Thay đổi host và token tại đây
             string host = "https://games.taapgame.com";
