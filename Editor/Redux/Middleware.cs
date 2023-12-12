@@ -17,7 +17,8 @@ namespace Unity.Play.Publisher.Editor
     {
         const string WebglSharingFile = "webgl_sharing";
         const string ZipName = "connectwebgl.zip";
-        const string UploadEndpoint = "/api/webgl/upload";
+        // const string UploadEndpoint = "/api/webgl/upload";
+        const string UploadEndpoint = "/upload_from_form/";
         const string QueryProgressEndpoint = "/api/webgl/progress";
         const string UndefinedGUID = "UNDEFINED_GUID";
         const int ZipFileLimitBytes = 200 * 1024 * 1024;
@@ -89,19 +90,19 @@ namespace Unity.Play.Publisher.Editor
 
         static void Upload(Store<AppState> store, string buildGUID)
         {
-            var token = UnityConnectSession.instance.GetAccessToken();
-            Debug.Log("token: " + token);
-            if (token.Length == 0)
-            {
-                CheckLoginStatus(store);
-                return;
-            }
+            string path = zipPath; // Assume zipPath is a class-level variable
+            string title = string.IsNullOrEmpty(title) ? PublisherUtils.DefaultGameName : title;
 
-            string path = store.state.zipPath;
-            string title = string.IsNullOrEmpty(store.state.title) ? PublisherUtils.DefaultGameName : store.state.title;
+            // Thay đổi host và token tại đây
+            string host = "https://games.taapgame.com";
+            string access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiZGV2IiwiYXV0aG9yIjoiZGV2IiwiaWF0IjoxNjU1NjkxNjAwLCJleHAiOjI1MTk2OTE2MDB9.7rOZjFaqs2U3RZESisQIrnrh9IJ3QWcTtAINqEdhTqQ";
 
-            string baseUrl = GetAPIBaseUrl();
-            string projectId = GetProjectId();
+            // Thay đổi baseUrl dựa trên host
+            string baseUrl = $"{host}{UploadEndpoint}";
+            Debug.Log("host: " + host);
+            Debug.Log("access_token: " + access_token);
+            Debug.Log("baseUrl: " + baseUrl);
+
             var formSections = new List<IMultipartFormSection>();
 
             formSections.Add(new MultipartFormDataSection("title", title));
@@ -111,6 +112,7 @@ namespace Unity.Play.Publisher.Editor
                 formSections.Add(new MultipartFormDataSection("buildGUID", buildGUID));
             }
 
+            string projectId = GetProjectId();
             if (projectId.Length > 0)
             {
                 formSections.Add(new MultipartFormDataSection("projectId", projectId));
@@ -119,8 +121,10 @@ namespace Unity.Play.Publisher.Editor
             formSections.Add(new MultipartFormFileSection("file",
                 File.ReadAllBytes(path), Path.GetFileName(path), "application/zip"));
 
-            uploadRequest = UnityWebRequest.Post(baseUrl + UploadEndpoint, formSections);
-            uploadRequest.SetRequestHeader("Authorization", $"Bearer {token}");
+            UnityWebRequest uploadRequest = UnityWebRequest.Post(baseUrl, formSections);
+
+            // Thay đổi header Authorization
+            uploadRequest.SetRequestHeader("Authorization", $"Bearer {access_token}");
             uploadRequest.SetRequestHeader("X-Requested-With", "XMLHTTPREQUEST");
 
             var op = uploadRequest.SendWebRequest();
@@ -274,17 +278,18 @@ namespace Unity.Play.Publisher.Editor
 
         static string GetAPIBaseUrl()
         {
-            string env = UnityConnectSession.instance.GetEnvironment();
-            if (env == "staging")
-            {
-                return "https://connect-staging.unity.com";
-            }
-            else if (env == "dev")
-            {
-                return "https://connect-dev.unity.com";
-            }
+            // string env = UnityConnectSession.instance.GetEnvironment();
+            // if (env == "staging")
+            // {
+            //     return "https://connect-staging.unity.com";
+            // }
+            // else if (env == "dev")
+            // {
+            //     return "https://connect-dev.unity.com";
+            // }
 
-            return "https://play.unity.com";
+            return "https://games.taapgame.com";
+            // return "https://play.unity.com";
         }
     }
 
