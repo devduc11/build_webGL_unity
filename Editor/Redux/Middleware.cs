@@ -7,6 +7,9 @@ using Unity.EditorCoroutines.Editor;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
+using System.Net;
+using System.Text;
+
 
 namespace Unity.Play.Publisher.Editor
 {
@@ -19,11 +22,13 @@ namespace Unity.Play.Publisher.Editor
         const string ZipName = "connectwebgl.zip";
         // const string UploadEndpoint = "/api/webgl/upload";
         const string UploadEndpoint = "/upload_from_form/";
+        // const string QueryProgressEndpoint = "/api/webgl/progress";
         const string QueryProgressEndpoint = "/upload_from_form/";
         const string UndefinedGUID = "UNDEFINED_GUID";
         const int ZipFileLimitBytes = 200 * 1024 * 1024;
         const string host = "https://games.taapgame.com";
         const string access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiZGV2IiwiYXV0aG9yIjoiZGV2IiwiaWF0IjoxNjU1NjkxNjAwLCJleHAiOjI1MTk2OTE2MDB9.7rOZjFaqs2U3RZESisQIrnrh9IJ3QWcTtAINqEdhTqQ";
+
 
         static EditorCoroutine waitUntilUserLogsInRoutine;
         static UnityWebRequest uploadRequest;
@@ -42,9 +47,9 @@ namespace Unity.Play.Publisher.Editor
                 {
                     case PublishStartAction published: ZipAndPublish(published.title, published.buildPath, store); break;
                     case UploadStartAction upload: Upload(store, upload.buildGUID); break;
-                    case QueryProgressAction query: CheckProgress(store, query.key); break;
-                    case StopUploadAction stopUpload: StopUploadAction(); break;
-                    case NotLoginAction login: CheckLoginStatus(store); break;
+                        // case QueryProgressAction query: CheckProgress(store, query.key); break;
+                        // case StopUploadAction stopUpload: StopUploadAction(); break;
+                        // case NotLoginAction login: CheckLoginStatus(store); break;
                 }
                 return result;
             };
@@ -52,6 +57,7 @@ namespace Unity.Play.Publisher.Editor
 
         static void ZipAndPublish(string title, string buildPath, Store<AppState> store)
         {
+            Debug.Log("store: " + store);
             store.Dispatch(new TitleChangeAction { title = title });
 
             if (!PublisherUtils.BuildIsValid(buildPath))
@@ -92,12 +98,12 @@ namespace Unity.Play.Publisher.Editor
 
         static void Upload(Store<AppState> store, string buildGUID)
         {
-            var token = UnityConnectSession.instance.GetAccessToken();
-            if (token.Length == 0)
-            {
-                CheckLoginStatus(store);
-                return;
-            }
+            // var token = UnityConnectSession.instance.GetAccessToken();
+            // if (token.Length == 0)
+            // {
+            //     CheckLoginStatus(store);
+            //     return;
+            // }
 
             string path = store.state.zipPath;
             string title = string.IsNullOrEmpty(store.state.title) ? PublisherUtils.DefaultGameName : store.state.title;
@@ -122,7 +128,8 @@ namespace Unity.Play.Publisher.Editor
                 File.ReadAllBytes(path), Path.GetFileName(path), "application/zip"));
 
             uploadRequest = UnityWebRequest.Post(baseUrl + UploadEndpoint, formSections);
-            uploadRequest.SetRequestHeader("Authorization", $"Bearer {token}");
+            // uploadRequest.SetRequestHeader("Authorization", $"Bearer {token}");
+            uploadRequest.SetRequestHeader("Authorization", $"Bearer {access_token}");
             uploadRequest.SetRequestHeader("X-Requested-With", "XMLHTTPREQUEST");
 
             var op = uploadRequest.SendWebRequest();
@@ -132,8 +139,8 @@ namespace Unity.Play.Publisher.Editor
             op.completed += operation =>
             {
 #if UNITY_2020
-                if ((uploadRequest.result == UnityWebRequest.Result.ConnectionError)
-                    || (uploadRequest.result == UnityWebRequest.Result.ProtocolError))
+                 if ((uploadRequest.result == UnityWebRequest.Result.ConnectionError)
+                     || (uploadRequest.result == UnityWebRequest.Result.ProtocolError))
 #else
                 if (uploadRequest.isNetworkError || uploadRequest.isHttpError)
 #endif
@@ -141,6 +148,7 @@ namespace Unity.Play.Publisher.Editor
                     if (uploadRequest.error != "Request aborted")
                     {
                         store.Dispatch(new OnErrorAction { errorMsg = uploadRequest.error });
+                        Debug.Log("Up File lỗi Vì chưa code kết nối trên serve: " + store.Dispatch(new OnErrorAction { errorMsg = uploadRequest.error }));
                     }
                 }
                 else
@@ -152,6 +160,50 @@ namespace Unity.Play.Publisher.Editor
                     }
                 }
             };
+            // UploadZip(path);
+        }
+
+        public static void UploadZip(string filePath)
+        {
+            Debug.Log("path 1: " + filePath);
+            // Đọc dữ liệu từ file
+            byte[] fileData = File.ReadAllBytes(filePath);
+
+            // Tạo request
+            string boundary = "-------------------------" + DateTime.Now.Ticks.ToString("x");
+            WebRequest request = WebRequest.Create(host + UploadEndpoint);
+            request.Method = "POST";
+            request.ContentType = "multipart/form-data; boundary=" + boundary;
+            request.Headers.Add("Authorization", "Bearer " + access_token);
+
+            // Xây dựng body của request
+            StringBuilder data = new StringBuilder();
+            data.AppendLine("--" + boundary);
+            data.AppendLine("Content-Disposition: form-data; name=\"file\"; filename=\"" + Path.GetFileName(filePath) + "\"");
+            data.AppendLine("Content-Type: application/zip");
+            data.AppendLine();
+            string header = data.ToString();
+            byte[] headerBytes = Encoding.UTF8.GetBytes(header);
+            byte[] trailer = Encoding.UTF8.GetBytes("\r\n--" + boundary + "--\r\n");
+
+            // Gửi dữ liệu
+            request.ContentLength = headerBytes.Length + fileData.Length + trailer.Length;
+            using (Stream requestStream = request.GetRequestStream())
+            {
+                requestStream.Write(headerBytes, 0, headerBytes.Length);
+                requestStream.Write(fileData, 0, fileData.Length);
+                requestStream.Write(trailer, 0, trailer.Length);
+            }
+
+            // Nhận phản hồi từ server
+            using (WebResponse response = request.GetResponse())
+            using (Stream responseStream = response.GetResponseStream())
+            using (StreamReader reader = new StreamReader(responseStream))
+            {
+                string result = reader.ReadToEnd();
+                Debug.Log(result);
+                // Xử lý kết quả từ server (nếu cần)
+            }
         }
 
         static void StopUploadAction()
@@ -162,18 +214,19 @@ namespace Unity.Play.Publisher.Editor
 
         static void CheckProgress(Store<AppState> store, string key)
         {
-            var token = UnityConnectSession.instance.GetAccessToken();
-            if (token.Length == 0)
-            {
-                CheckLoginStatus(store);
-                return;
-            }
+            // var token = UnityConnectSession.instance.GetAccessToken();
+            // if (token.Length == 0)
+            // {
+            //     CheckLoginStatus(store);
+            //     return;
+            // }
 
             key = key ?? store.state.key;
             string baseUrl = GetAPIBaseUrl();
 
             var uploadRequest = UnityWebRequest.Get($"{baseUrl + QueryProgressEndpoint}?key={key}");
-            uploadRequest.SetRequestHeader("Authorization", $"Bearer {token}");
+            // uploadRequest.SetRequestHeader("Authorization", $"Bearer {token}");
+            uploadRequest.SetRequestHeader("Authorization", $"Bearer {access_token}");
             uploadRequest.SetRequestHeader("X-Requested-With", "XMLHTTPREQUEST");
             var op = uploadRequest.SendWebRequest();
 
@@ -239,12 +292,12 @@ namespace Unity.Play.Publisher.Editor
 
         static void CheckLoginStatus(Store<AppState> store)
         {
-            var token = UnityConnectSession.instance.GetAccessToken();
-            if (token.Length != 0)
-            {
-                store.Dispatch(new LoginAction());
-                return;
-            }
+            // var token = UnityConnectSession.instance.GetAccessToken();
+            // if (token.Length != 0)
+            // {
+            //     store.Dispatch(new LoginAction());
+            //     return;
+            // }
 
             if (waitUntilUserLogsInRoutine != null) { return; }
 
@@ -276,18 +329,18 @@ namespace Unity.Play.Publisher.Editor
 
         static string GetAPIBaseUrl()
         {
-            string env = UnityConnectSession.instance.GetEnvironment();
-            if (env == "staging")
-            {
-                return "https://connect-staging.unity.com";
-            }
-            else if (env == "dev")
-            {
-                return "https://connect-dev.unity.com";
-            }
+            // string env = UnityConnectSession.instance.GetEnvironment();
+            // if (env == "staging")
+            // {
+            //     return "https://connect-staging.unity.com";
+            // }
+            // else if (env == "dev")
+            // {
+            //     return "https://connect-dev.unity.com";
+            // }
 
-            // return host;
-            return "https://play.unity.com";
+            // return "https://play.unity.com";
+            return host;
         }
     }
 
